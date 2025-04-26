@@ -1,29 +1,46 @@
 import React, { useState } from "react";
 
 const MessageRewriter = () => {
-  const [originalMessage, setOriginalMessage] = useState("");
+  const [inputMessage, setInputMessage] = useState("");
   const [rewrittenMessage, setRewrittenMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleRewrite = async () => {
-    if (!originalMessage.trim()) return;
+    if (!inputMessage.trim()) {
+      setRewrittenMessage("Please enter a message to rewrite.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await fetch("/api/rewrite", {
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: originalMessage }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: "Rewrite the user's message in a way that avoids spam detection but keeps the meaning." },
+            { role: "user", content: inputMessage },
+          ],
+          temperature: 0.7,
+        }),
       });
 
       const data = await response.json();
-      if (data.rewrittenText) {
-        setRewrittenMessage(data.rewrittenText);
+
+      if (data && data.choices && data.choices.length > 0) {
+        setRewrittenMessage(data.choices[0].message.content.trim());
       } else {
-        setRewrittenMessage("Failed to rewrite. Try again.");
+        setRewrittenMessage("Error: No response from AI.");
       }
     } catch (error) {
-      console.error("Rewrite failed", error);
+      console.error(error);
       setRewrittenMessage("Error rewriting the message.");
     } finally {
       setLoading(false);
@@ -31,30 +48,30 @@ const MessageRewriter = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-6">
-      <h1 className="text-3xl font-bold text-white mb-4">Message Rewriter</h1>
+    <div className="p-6 max-w-4xl mx-auto text-center">
+      <h1 className="text-3xl font-bold mb-2 text-white">Message Rewriter</h1>
       <p className="text-gray-400 mb-6">Rewrite messages to avoid spam detection.</p>
 
       <textarea
-        className="w-full max-w-xl p-4 mb-4 bg-white text-gray-800 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+        className="w-full p-4 rounded-lg mb-4 bg-white text-black resize-none"
         rows="6"
         placeholder="Type your original message here..."
-        value={originalMessage}
-        onChange={(e) => setOriginalMessage(e.target.value)}
+        value={inputMessage}
+        onChange={(e) => setInputMessage(e.target.value)}
       />
 
       <button
         onClick={handleRewrite}
         disabled={loading}
-        className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+        className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-full transition disabled:opacity-50"
       >
         {loading ? "Rewriting..." : "Rewrite Message"}
       </button>
 
       <textarea
-        className="w-full max-w-xl p-4 mt-6 bg-white text-gray-800 rounded-lg resize-none focus:outline-none"
+        className="w-full p-4 rounded-lg mt-6 bg-white text-black resize-none"
         rows="6"
-        placeholder="Rewritten message will appear here..."
+        placeholder="Your rewritten message will appear here..."
         value={rewrittenMessage}
         readOnly
       />
